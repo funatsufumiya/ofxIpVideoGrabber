@@ -382,7 +382,7 @@ uint64_t IPVideoGrabber::getTimeTillNextAutoRetry() const
 
     auto now = ofGetSystemTimeMillis();
 
-    if (nextAutoRetry_a == 0 or now >= nextAutoRetry_a)
+    if (nextAutoRetry_a == 0 || now >= nextAutoRetry_a)
     {
         return 0;
     }
