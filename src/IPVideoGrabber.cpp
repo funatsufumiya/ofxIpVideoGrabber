@@ -34,6 +34,7 @@ const char IPVideoGrabber::EOI = 0xD9;
 
 
 IPVideoGrabber::IPVideoGrabber():
+    _isThreadRunning(false),
     _isConnected(false),
     defaultBoundaryMarker_a("--myboundary"),
     cameraName_a(""),
@@ -124,8 +125,11 @@ void IPVideoGrabber::update()
     uint64_t now = ofGetSystemTimeMillis();
     
     std::string cName = getCameraName(); // consequence of scoped locking
+
+    bool needsAutoReconnect = getNeedsReconnect() && autoReconnect;
     
-    if (_isConnected)
+    if (_isThreadRunning && !needsAutoReconnect)
+    // if (_isThreadRunning)
     {
         ///////////////////////////////
         mutex.lock();     // LOCKING //
@@ -204,6 +208,10 @@ void IPVideoGrabber::update()
     }
     else
     {
+        if (needsAutoReconnect && _isThreadRunning) {
+            // disconnect();
+            waitForDisconnect();
+        }
         
         if (getNeedsReconnect())
         {
@@ -237,7 +245,7 @@ void IPVideoGrabber::update()
 
 void IPVideoGrabber::connect()
 {
-    if (!_isConnected)
+    if (!_isThreadRunning)
     {
         ofLogNotice("IPVideoGrabber::connect")  << "[" << getCameraName() << "]: Connecting!";
 
@@ -248,7 +256,7 @@ void IPVideoGrabber::connect()
         currentBitRate   = 0.0;
         currentFrameRate = 0.0;
 
-        _isConnected = true;
+        _isThreadRunning = true;
         _thread = std::thread(&IPVideoGrabber::threadedFunction, this);
 
     }
@@ -278,9 +286,9 @@ void IPVideoGrabber::waitForDisconnect()
 
 void IPVideoGrabber::disconnect()
 {
-    if (_isConnected)
+    if (_isThreadRunning)
     {
-        _isConnected = false;
+        _isThreadRunning = false;
     }
     else
     {
@@ -399,7 +407,7 @@ void IPVideoGrabber::setDefaultBoundaryMarker(const std::string& _defaultBoundar
 
     defaultBoundaryMarker_a = _defaultBoundaryMarker;
 
-    if (_isConnected)
+    if (_isThreadRunning)
     {
         ofLogWarning("IPVideoGrabber::setDefaultBoundaryMarker") << "Session currently active.  New boundary info will be applied on the next connection.";
     }
@@ -540,7 +548,7 @@ void IPVideoGrabber::threadedFunction()
         // int contentLength = 0;
         std::string boundaryType;
         
-        while (_isConnected)
+        while (_isThreadRunning)
         {
             if (!responseInputStream.fail() && !responseInputStream.bad())
             {
@@ -685,15 +693,24 @@ void IPVideoGrabber::threadedFunction()
             { // end stream check
                 throw Poco::Exception("ResponseInputStream failed or went bad -- it was probably interrupted.");
             }
+
+            mutex.lock();
+            _isConnected = true;
+            mutex.unlock();
             
         } // end while
+
+        mutex.lock();
+        _isConnected = false;
+        mutex.unlock();
 
     }
     catch (const Poco::Exception& e)
     {
         mutex.lock();
         needsReconnect_a = true;
-//        _isConnected = false;
+//        _isThreadRunning = false;
+        _isConnected = false;
         nextAutoRetry_a = ofGetSystemTimeMillis() + autoRetryDelay_a;
         mutex.unlock();
         ofLogError("IPVideoGrabber") << "Exception : [" << getCameraName() << "]: " <<  e.displayText();
@@ -702,7 +719,8 @@ void IPVideoGrabber::threadedFunction()
     {
         mutex.lock();
         needsReconnect_a = true;
-//        _isConnected = false;
+//        _isThreadRunning = false;
+        _isConnected = false;
         nextAutoRetry_a = ofGetSystemTimeMillis() + autoRetryDelay_a;
         mutex.unlock();
         ofLogError("IPVideoGrabber") << "Unknown exception.";
@@ -813,7 +831,7 @@ float IPVideoGrabber::getHeight() const
 
 uint64_t IPVideoGrabber::getNumFramesReceived() const
 {
-    if (_isConnected)
+    if (_isThreadRunning)
     {
         std::unique_lock<std::mutex> lock(mutex);
         return nFrames_a;
@@ -827,7 +845,7 @@ uint64_t IPVideoGrabber::getNumFramesReceived() const
 
 uint64_t IPVideoGrabber::getNumBytesReceived() const
 {
-    if (_isConnected)
+    if (_isThreadRunning)
     {
         std::unique_lock<std::mutex> lock(mutex);
         return nBytes_a;
@@ -883,7 +901,7 @@ void IPVideoGrabber::resetAnchor()
 
 float IPVideoGrabber::getFrameRate() const
 {
-    if (_isConnected)
+    if (_isThreadRunning)
     {
         return currentFrameRate;
     }
@@ -896,7 +914,7 @@ float IPVideoGrabber::getFrameRate() const
 
 float IPVideoGrabber::getBitRate() const
 {
-    if (_isConnected)
+    if (_isThreadRunning)
     {
         return currentBitRate;
     }
@@ -932,7 +950,7 @@ void IPVideoGrabber::setCookie(const std::string& key, const std::string& value)
 {
     cookies.add(key, value);
 
-    if (_isConnected)
+    if (_isThreadRunning)
     {
         ofLogWarning("IPVideoGrabber::setCookie") << "Session currently active.  New cookie info will be applied on the next connection.";
     }
@@ -943,7 +961,7 @@ void IPVideoGrabber::eraseCookie(const std::string& key)
 {
     cookies.erase(key);
 
-    if (_isConnected)
+    if (_isThreadRunning)
     {
         ofLogWarning("IPVideoGrabber::eraseCookie") << "Session currently active.  New cookie info will be applied on the next connection.";
     }
@@ -963,7 +981,7 @@ void IPVideoGrabber::setUsername(const std::string& _username)
     username_a = _username;
     mutex.unlock();
 
-    if (_isConnected)
+    if (_isThreadRunning)
     {
         ofLogWarning("IPVideoGrabber::setUsername") << "Session currently active.  New authentication info will be applied on the next connection.";
     }
@@ -976,7 +994,7 @@ void IPVideoGrabber::setPassword(const std::string& _password)
     password_a = _password;
     mutex.unlock();
 
-    if (_isConnected)
+    if (_isThreadRunning)
     {
         ofLogWarning("IPVideoGrabber::setPassword") << "Session currently active.  New authentication info will be applied on the next connection.";
     }
@@ -1044,7 +1062,7 @@ void IPVideoGrabber::setURI(const std::string& _uri)
     uri_a = Poco::URI(_uri);
     mutex.unlock();
 
-    if (_isConnected)
+    if (_isThreadRunning)
     {
         ofLogWarning("IPVideoGrabber::setURI") << "Session currently active.  New URI will be applied on the next connection.";
     }
@@ -1057,7 +1075,7 @@ void IPVideoGrabber::setURI(const Poco::URI& _uri)
     uri_a = _uri;
     mutex.unlock();
 
-    if (_isConnected)
+    if (_isThreadRunning)
     {
         ofLogWarning("IPVideoGrabber::setURI") << "Session currently active.  New URI will be applied on the next connection.";
     }
@@ -1070,7 +1088,7 @@ void IPVideoGrabber::setUseProxy(bool useProxy)
     bUseProxy_a = useProxy;
     mutex.unlock();
 
-    if (_isConnected)
+    if (_isThreadRunning)
     {
         ofLogWarning("IPVideoGrabber::setUseProxy") << "Session currently active.  New proxy info will be applied on the next connection.";
     }
@@ -1083,7 +1101,7 @@ void IPVideoGrabber::setProxyUsername(const std::string& username)
     proxyUsername_a = username;
     mutex.unlock();
 
-    if (_isConnected)
+    if (_isThreadRunning)
     {
         ofLogWarning("IPVideoGrabber::setProxyUsername") << "Session currently active.  New proxy info will be applied on the next connection.";
     }
@@ -1096,7 +1114,7 @@ void IPVideoGrabber::setProxyPassword(const std::string& password)
     proxyPassword_a = password;
     mutex.unlock();
 
-    if (_isConnected)
+    if (_isThreadRunning)
     {
         ofLogWarning("IPVideoGrabber::setProxyPassword") << "Session currently active.  New proxy info will be applied on the next connection.";
     }
@@ -1109,7 +1127,7 @@ void IPVideoGrabber::setProxyHost(const std::string& host)
     proxyHost_a = host;
     mutex.unlock();
 
-    if (_isConnected)
+    if (_isThreadRunning)
     {
         ofLogWarning("IPVideoGrabber::setProxyHost") << "Session currently active.  New proxy info will be applied on the next connection.";
     }
@@ -1122,7 +1140,7 @@ void IPVideoGrabber::setProxyPort(uint16_t port)
     proxyPort_a = port;
     mutex.unlock();
 
-    if (_isConnected)
+    if (_isThreadRunning)
     {
         ofLogWarning("IPVideoGrabber::setProxyPort") << "Session currently active.  New proxy info will be applied on the next connection.";
     }

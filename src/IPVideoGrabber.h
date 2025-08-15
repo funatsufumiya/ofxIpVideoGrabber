@@ -259,6 +259,7 @@ private:
     ofEventListener _exitListener;
 #endif
 
+    std::atomic<bool> _isThreadRunning;
     std::atomic<bool> _isConnected;
 
     std::string defaultBoundaryMarker_a;
