@@ -90,6 +90,8 @@ IPVideoGrabber::IPVideoGrabber():
 
 IPVideoGrabber::~IPVideoGrabber()
 {
+    autoReconnect = false; // for sure
+    
     // N.B. In most cases, IPVideoGrabber::exit() will be called before
     // the program ever makes it into this destructor.
     waitForDisconnect();
