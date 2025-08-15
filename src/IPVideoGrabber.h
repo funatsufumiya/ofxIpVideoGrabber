@@ -235,6 +235,7 @@ public:
     uint64_t getReconnectTimeout() const;
     bool getNeedsReconnect() const;
     bool getAutoReconnect() const;
+    void setAutoReconnect(bool b);
     int getReconnectCount() const;
     int getMaxReconnects() const;
     void setMaxReconnects(int num);

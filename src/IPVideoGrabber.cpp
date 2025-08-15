@@ -343,6 +343,11 @@ bool IPVideoGrabber::getAutoReconnect() const
     return autoReconnect;
 }
 
+void IPVideoGrabber::setAutoReconnect(bool b)
+{
+    autoReconnect = b;
+}
+
 
 int IPVideoGrabber::getReconnectCount() const
 {
