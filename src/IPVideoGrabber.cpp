@@ -215,7 +215,7 @@ void IPVideoGrabber::update()
             waitForDisconnect();
         }
         
-        if (needsAutoReconnect)
+        if (needsAutoReconnect && !_isThreadRunning)
         {
             if (maxReconnects < 0 || getReconnectCount() < maxReconnects)
             {
