@@ -301,7 +301,10 @@ void IPVideoGrabber::disconnect()
 
 void IPVideoGrabber::close()
 {
-    autoReconnect = false;
+    if(autoReconnect){
+        ofLogNotice("IPVideoGrabber::close")  << "auto reconnect: OFF";
+        autoReconnect = false;
+    }
     disconnect();
 }
 
