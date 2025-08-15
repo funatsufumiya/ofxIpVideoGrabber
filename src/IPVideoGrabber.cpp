@@ -213,7 +213,7 @@ void IPVideoGrabber::update()
             waitForDisconnect();
         }
         
-        if (getNeedsReconnect())
+        if (needsAutoReconnect)
         {
             if (maxReconnects < 0 || getReconnectCount() < maxReconnects)
             {
@@ -233,7 +233,7 @@ void IPVideoGrabber::update()
             {
                 if (!connectionFailure)
                 {
-                    ofLogError("IPVideoGrabber::update") << "["<< cName << "] Connection retries exceeded, connection connection failed.  Call ::reset() to try again.";
+                    ofLogError("IPVideoGrabber::update") << "["<< cName << "] Connection retries exceeded, connection failed.  Call ::reset() to try again.";
                     connectionFailure = true;
                 }
             }
