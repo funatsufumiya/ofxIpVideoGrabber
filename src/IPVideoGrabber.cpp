@@ -299,6 +299,7 @@ void IPVideoGrabber::disconnect()
 
 void IPVideoGrabber::close()
 {
+    autoReconnect = false;
     disconnect();
 }
 
