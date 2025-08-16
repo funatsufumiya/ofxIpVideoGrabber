@@ -22,7 +22,6 @@
 namespace ofx {
 namespace Video {
 
-
 class IpVideoGrabberSettings
 {
 public:
@@ -230,6 +229,9 @@ public:
     bool isConnected() const;
     
     bool hasConnectionFailed() const;
+
+    bool isLoggingAllAsVerbose() const;
+    void setLogAllAsVerbose(bool b);
     
     void setReconnectTimeout(uint64_t ms);
     uint64_t getReconnectTimeout() const;
@@ -252,6 +254,10 @@ public:
 protected:    
     void threadedFunction();// override;// connect to server
     void imageResized(int width, int height);
+
+    std::shared_ptr<ofLog> logNotice(const std::string& s);
+    std::shared_ptr<ofLog> logWarning(const std::string& s);
+    std::shared_ptr<ofLog> logError(const std::string& s);
     
 private:
     std::thread _thread;
@@ -270,6 +276,8 @@ private:
     // credentials
     std::string username_a;
     std::string password_a;
+
+    bool bLogAllAsVerbose;
     
     bool bUseProxy_a;
     std::string proxyUsername_a;

@@ -65,7 +65,8 @@ IPVideoGrabber::IPVideoGrabber():
     autoReconnect(true),
     reconnectCount_a(0),
     maxReconnects(20),
-    sessionTimeout(2000)
+    sessionTimeout(2000),
+    bLogAllAsVerbose(false)
 {
     img->allocate(1, 1, OF_IMAGE_COLOR); // allocate something so it won't throw errors
     img->setColor(0, 0, ofColor(0));
@@ -235,7 +236,7 @@ void IPVideoGrabber::update()
             {
                 if (!connectionFailure)
                 {
-                    ofLogError("IPVideoGrabber::update") << "["<< cName << "] Connection retries exceeded, connection failed.  Call ::reset() to try again.";
+                    *logError("IPVideoGrabber::update") << "["<< cName << "] Connection retries exceeded, connection failed.  Call ::reset() to try again.";
                     connectionFailure = true;
                 }
             }
@@ -249,7 +250,7 @@ void IPVideoGrabber::connect()
 {
     if (!_isThreadRunning)
     {
-        ofLogNotice("IPVideoGrabber::connect")  << "[" << getCameraName() << "]: Connecting!";
+        *logNotice("IPVideoGrabber::connect")  << "[" << getCameraName() << "]: Connecting!";
 
         // start the thread.
         
@@ -264,14 +265,14 @@ void IPVideoGrabber::connect()
     }
     else
     {
-        ofLogWarning("IPVideoGrabber::connect")  << "[" << getCameraName() << "]: Already connected.  Disconnect first.";
+        *logWarning("IPVideoGrabber::connect")  << "[" << getCameraName() << "]: Already connected.  Disconnect first.";
     }
 }
 
 
 void IPVideoGrabber::waitForDisconnect()
 {
-    ofLogNotice("IPVideoGrabber::waitForDisconnect")  << "Waiting for disconnect ... ";
+    *logNotice("IPVideoGrabber::waitForDisconnect")  << "Waiting for disconnect ... ";
 
     disconnect();
 
@@ -294,7 +295,7 @@ void IPVideoGrabber::disconnect()
     }
     else
     {
-        ofLogNotice("IPVideoGrabber::disconnect")  << "[" << getCameraName() << "]: Not connected.  Connect first.";
+        *logNotice("IPVideoGrabber::disconnect")  << "[" << getCameraName() << "]: Not connected.  Connect first.";
     }
 }
 
@@ -302,7 +303,7 @@ void IPVideoGrabber::disconnect()
 void IPVideoGrabber::close()
 {
     if(autoReconnect){
-        ofLogNotice("IPVideoGrabber::close")  << "auto reconnect: OFF";
+        *logNotice("IPVideoGrabber::close")  << "auto reconnect: OFF";
         autoReconnect = false;
     }
     disconnect();
@@ -420,7 +421,7 @@ void IPVideoGrabber::setDefaultBoundaryMarker(const std::string& _defaultBoundar
 
     if (_isThreadRunning)
     {
-        ofLogWarning("IPVideoGrabber::setDefaultBoundaryMarker") << "Session currently active.  New boundary info will be applied on the next connection.";
+        *logWarning("IPVideoGrabber::setDefaultBoundaryMarker") << "Session currently active.  New boundary info will be applied on the next connection.";
     }
 }
 
@@ -471,7 +472,7 @@ void IPVideoGrabber::threadedFunction()
         }
         else
         {
-            ofLogError("IPVideoGrabber") << "Attempted to use web proxy, but proxy host was empty.  Continuing without proxy.";
+            *logError("IPVideoGrabber") << "Attempted to use web proxy, but proxy host was empty.  Continuing without proxy.";
         }
     }
         
@@ -652,7 +653,7 @@ void IPVideoGrabber::threadedFunction()
                                 }
                                 else
                                 {
-                                    ofLogError("IPVideoGrabber") << "ofImage could not load the curent buffer, continuing.";
+                                    *logError("IPVideoGrabber") << "ofImage could not load the curent buffer, continuing.";
                                 }
                                 
                                 ///////////////////////////////
@@ -686,7 +687,7 @@ void IPVideoGrabber::threadedFunction()
                 if (c >= BUF_LEN)
                 {
                     resetBuffer = true;
-                    ofLogError("IPVideoGrabber") << "[" + getCameraName() +"]: buffer overflow, resetting stream.";
+                    *logError("IPVideoGrabber") << "[" + getCameraName() +"]: buffer overflow, resetting stream.";
                 }
                 
                 // has anyone requested a buffer reset?
@@ -724,7 +725,7 @@ void IPVideoGrabber::threadedFunction()
         _isConnected = false;
         nextAutoRetry_a = ofGetSystemTimeMillis() + autoRetryDelay_a;
         mutex.unlock();
-        ofLogError("IPVideoGrabber") << "Exception : [" << getCameraName() << "]: " <<  e.displayText();
+        *logError("IPVideoGrabber") << "Exception : [" << getCameraName() << "]: " <<  e.displayText();
     }
     catch (...)
     {
@@ -734,7 +735,7 @@ void IPVideoGrabber::threadedFunction()
         _isConnected = false;
         nextAutoRetry_a = ofGetSystemTimeMillis() + autoRetryDelay_a;
         mutex.unlock();
-        ofLogError("IPVideoGrabber") << "Unknown exception.";
+        *logError("IPVideoGrabber") << "Unknown exception.";
     }
 
 
@@ -802,7 +803,7 @@ const ofTexture& IPVideoGrabber::getTexture() const
 
 void IPVideoGrabber::setUseTexture(bool useTexture)
 {
-    ofLogWarning("IPVideoGrabber::setUseTexture") << "This is always true.";
+    *logWarning("IPVideoGrabber::setUseTexture") << "This is always true.";
 }
 
 
@@ -867,6 +868,37 @@ uint64_t IPVideoGrabber::getNumBytesReceived() const
     }
 }
 
+bool IPVideoGrabber::isLoggingAllAsVerbose() const {
+    return bLogAllAsVerbose;
+}
+
+void IPVideoGrabber::setLogAllAsVerbose(bool b) {
+    bLogAllAsVerbose = b;
+}
+
+std::shared_ptr<ofLog> IPVideoGrabber::logNotice(const std::string& s) {
+    if(bLogAllAsVerbose){
+        return std::make_shared<ofLogVerbose>(s);
+    }else{
+        return std::make_shared<ofLogNotice>(s);
+    }
+}
+
+std::shared_ptr<ofLog> IPVideoGrabber::logWarning(const std::string& s) {
+    if(bLogAllAsVerbose){
+        return std::make_shared<ofLogVerbose>(s);
+    }else{
+        return std::make_shared<ofLogWarning>(s);
+    }
+}
+
+std::shared_ptr<ofLog> IPVideoGrabber::logError(const std::string& s) {
+    if(bLogAllAsVerbose){
+        return std::make_shared<ofLogVerbose>(s);
+    }else{
+        return std::make_shared<ofLogError>(s);
+    }
+}
 
 void IPVideoGrabber::draw(float x, float y) const
 {
@@ -963,7 +995,7 @@ void IPVideoGrabber::setCookie(const std::string& key, const std::string& value)
 
     if (_isThreadRunning)
     {
-        ofLogWarning("IPVideoGrabber::setCookie") << "Session currently active.  New cookie info will be applied on the next connection.";
+        *logWarning("IPVideoGrabber::setCookie") << "Session currently active.  New cookie info will be applied on the next connection.";
     }
 }
 
@@ -974,7 +1006,7 @@ void IPVideoGrabber::eraseCookie(const std::string& key)
 
     if (_isThreadRunning)
     {
-        ofLogWarning("IPVideoGrabber::eraseCookie") << "Session currently active.  New cookie info will be applied on the next connection.";
+        *logWarning("IPVideoGrabber::eraseCookie") << "Session currently active.  New cookie info will be applied on the next connection.";
     }
 }
 
@@ -994,7 +1026,7 @@ void IPVideoGrabber::setUsername(const std::string& _username)
 
     if (_isThreadRunning)
     {
-        ofLogWarning("IPVideoGrabber::setUsername") << "Session currently active.  New authentication info will be applied on the next connection.";
+        *logWarning("IPVideoGrabber::setUsername") << "Session currently active.  New authentication info will be applied on the next connection.";
     }
 }
 
@@ -1007,7 +1039,7 @@ void IPVideoGrabber::setPassword(const std::string& _password)
 
     if (_isThreadRunning)
     {
-        ofLogWarning("IPVideoGrabber::setPassword") << "Session currently active.  New authentication info will be applied on the next connection.";
+        *logWarning("IPVideoGrabber::setPassword") << "Session currently active.  New authentication info will be applied on the next connection.";
     }
 }
 
@@ -1075,7 +1107,7 @@ void IPVideoGrabber::setURI(const std::string& _uri)
 
     if (_isThreadRunning)
     {
-        ofLogWarning("IPVideoGrabber::setURI") << "Session currently active.  New URI will be applied on the next connection.";
+        *logWarning("IPVideoGrabber::setURI") << "Session currently active.  New URI will be applied on the next connection.";
     }
 }
 
@@ -1088,7 +1120,7 @@ void IPVideoGrabber::setURI(const Poco::URI& _uri)
 
     if (_isThreadRunning)
     {
-        ofLogWarning("IPVideoGrabber::setURI") << "Session currently active.  New URI will be applied on the next connection.";
+        *logWarning("IPVideoGrabber::setURI") << "Session currently active.  New URI will be applied on the next connection.";
     }
 }
 
@@ -1101,7 +1133,7 @@ void IPVideoGrabber::setUseProxy(bool useProxy)
 
     if (_isThreadRunning)
     {
-        ofLogWarning("IPVideoGrabber::setUseProxy") << "Session currently active.  New proxy info will be applied on the next connection.";
+        *logWarning("IPVideoGrabber::setUseProxy") << "Session currently active.  New proxy info will be applied on the next connection.";
     }
 }
 
@@ -1114,7 +1146,7 @@ void IPVideoGrabber::setProxyUsername(const std::string& username)
 
     if (_isThreadRunning)
     {
-        ofLogWarning("IPVideoGrabber::setProxyUsername") << "Session currently active.  New proxy info will be applied on the next connection.";
+        *logWarning("IPVideoGrabber::setProxyUsername") << "Session currently active.  New proxy info will be applied on the next connection.";
     }
 }
 
@@ -1127,7 +1159,7 @@ void IPVideoGrabber::setProxyPassword(const std::string& password)
 
     if (_isThreadRunning)
     {
-        ofLogWarning("IPVideoGrabber::setProxyPassword") << "Session currently active.  New proxy info will be applied on the next connection.";
+        *logWarning("IPVideoGrabber::setProxyPassword") << "Session currently active.  New proxy info will be applied on the next connection.";
     }
 }
 
@@ -1140,7 +1172,7 @@ void IPVideoGrabber::setProxyHost(const std::string& host)
 
     if (_isThreadRunning)
     {
-        ofLogWarning("IPVideoGrabber::setProxyHost") << "Session currently active.  New proxy info will be applied on the next connection.";
+        *logWarning("IPVideoGrabber::setProxyHost") << "Session currently active.  New proxy info will be applied on the next connection.";
     }
 }
 
@@ -1153,7 +1185,7 @@ void IPVideoGrabber::setProxyPort(uint16_t port)
 
     if (_isThreadRunning)
     {
-        ofLogWarning("IPVideoGrabber::setProxyPort") << "Session currently active.  New proxy info will be applied on the next connection.";
+        *logWarning("IPVideoGrabber::setProxyPort") << "Session currently active.  New proxy info will be applied on the next connection.";
     }
 }
 
